@@ -4,6 +4,12 @@ FROM node:18-alpine
 # تحديد مجلد العمل
 WORKDIR /app
 
+# نسخ package.json
+COPY package.json ./
+
+# تثبيت التبعيات الإنتاجية فقط
+RUN npm install --omit=dev && npm cache clean --force
+
 # نسخ الملفات المبنية
 COPY dist ./dist
 
