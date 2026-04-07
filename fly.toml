@@ -1,35 +1,23 @@
-# Fly.io Configuration
-app = "orchid-dental-backend"
-primary_region = "ams"
+# fly.toml app configuration file generated for orchid-system-backend on 2026-04-07T08:19:45Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'orchid-system-backend'
+primary_region = 'ams'
 
 [build]
-
-[env]
-  PORT = "8080"
-  NODE_ENV = "production"
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = true
+  auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
-  processes = ["app"]
-
-  # WebSocket support - زيادة timeout للاتصالات الطويلة
-  [http_service.concurrency]
-    type = "connections"
-    hard_limit = 250
-    soft_limit = 200
-
-  [[http_service.checks]]
-    grace_period = "10s"
-    interval = "30s"
-    method = "GET"
-    timeout = "5s"
-    path = "/api/docs"
+  processes = ['app']
 
 [[vm]]
-  cpu_kind = "shared"
+  memory = '1gb'
+  cpu_kind = 'shared'
   cpus = 1
   memory_mb = 256
