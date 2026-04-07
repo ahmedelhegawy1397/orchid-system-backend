@@ -27,14 +27,16 @@ const enums_1 = require("../../enums");
 const invoice_helpers_1 = require("./invoice-helpers");
 const accounting_gateway_1 = require("../accounting/accounting.gateway");
 const dashboard_gateway_1 = require("../dashboard/dashboard.gateway");
+const daily_closeouts_gateway_1 = require("../daily-closeouts/daily-closeouts.gateway");
 let InvoicesService = class InvoicesService {
-    constructor(invoiceModel, paymentModel, expenseModel, configService, accountingGateway, dashboardGateway) {
+    constructor(invoiceModel, paymentModel, expenseModel, configService, accountingGateway, dashboardGateway, dailyCloseoutsGateway) {
         this.invoiceModel = invoiceModel;
         this.paymentModel = paymentModel;
         this.expenseModel = expenseModel;
         this.configService = configService;
         this.accountingGateway = accountingGateway;
         this.dashboardGateway = dashboardGateway;
+        this.dailyCloseoutsGateway = dailyCloseoutsGateway;
     }
     async findAll(query, doctorIdFilter) {
         const filter = {};
@@ -238,6 +240,7 @@ let InvoicesService = class InvoicesService {
         this.accountingGateway.emitAccountingUpdated();
         this.dashboardGateway.emitRevenueChanged(populatedInvoice);
         this.dashboardGateway.emitDashboardUpdated();
+        this.dailyCloseoutsGateway.emitCloseoutsListUpdated();
         return populatedInvoice;
     }
     async update(id, body, doctorIdFilter) {
@@ -340,6 +343,7 @@ let InvoicesService = class InvoicesService {
         this.accountingGateway.emitAccountingUpdated();
         this.dashboardGateway.emitRevenueChanged(payment);
         this.dashboardGateway.emitDashboardUpdated();
+        this.dailyCloseoutsGateway.emitCloseoutsListUpdated();
         return payment;
     }
     async deletePayment(invoiceId, paymentId, doctorIdFilter) {
@@ -358,6 +362,7 @@ let InvoicesService = class InvoicesService {
         invoice.status = (0, invoice_helpers_1.computeStatus)(invoice.paid, invoice.total);
         await payment.deleteOne();
         await invoice.save();
+        this.dailyCloseoutsGateway.emitCloseoutsListUpdated();
     }
     async updatePayment(invoiceId, paymentId, newAmount, newMethod, doctorIdFilter) {
         const invId = (0, objectid_1.toObjectIdOrThrow)(invoiceId, 'invoiceId');
@@ -383,6 +388,7 @@ let InvoicesService = class InvoicesService {
         payment.afterRemaining = invoice.remaining;
         await payment.save();
         await invoice.save();
+        this.dailyCloseoutsGateway.emitCloseoutsListUpdated();
         return payment.toObject();
     }
 };
@@ -394,11 +400,13 @@ exports.InvoicesService = InvoicesService = __decorate([
     __param(2, (0, mongoose_1.InjectModel)(expense_schema_1.Expense.name)),
     __param(4, (0, common_1.Inject)((0, common_1.forwardRef)(() => accounting_gateway_1.AccountingGateway))),
     __param(5, (0, common_1.Inject)((0, common_1.forwardRef)(() => dashboard_gateway_1.DashboardGateway))),
+    __param(6, (0, common_1.Inject)((0, common_1.forwardRef)(() => daily_closeouts_gateway_1.DailyCloseoutsGateway))),
     __metadata("design:paramtypes", [mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model,
         config_1.ConfigService,
         accounting_gateway_1.AccountingGateway,
-        dashboard_gateway_1.DashboardGateway])
+        dashboard_gateway_1.DashboardGateway,
+        daily_closeouts_gateway_1.DailyCloseoutsGateway])
 ], InvoicesService);
 //# sourceMappingURL=invoices.service.js.map

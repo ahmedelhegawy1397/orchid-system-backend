@@ -7,6 +7,7 @@ import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { AccountingGateway } from '../accounting/accounting.gateway';
 import { DashboardGateway } from '../dashboard/dashboard.gateway';
+import { DailyCloseoutsGateway } from '../daily-closeouts/daily-closeouts.gateway';
 export declare class InvoicesService {
     private invoiceModel;
     private paymentModel;
@@ -14,7 +15,8 @@ export declare class InvoicesService {
     private configService;
     private accountingGateway;
     private dashboardGateway;
-    constructor(invoiceModel: Model<Invoice>, paymentModel: Model<InvoicePayment>, expenseModel: Model<Expense>, configService: ConfigService, accountingGateway: AccountingGateway, dashboardGateway: DashboardGateway);
+    private dailyCloseoutsGateway;
+    constructor(invoiceModel: Model<Invoice>, paymentModel: Model<InvoicePayment>, expenseModel: Model<Expense>, configService: ConfigService, accountingGateway: AccountingGateway, dashboardGateway: DashboardGateway, dailyCloseoutsGateway: DailyCloseoutsGateway);
     findAll(query: {
         patientId?: string;
         doctorId?: string;

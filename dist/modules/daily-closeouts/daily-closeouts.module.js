@@ -33,7 +33,7 @@ exports.DailyCloseoutsModule = DailyCloseoutsModule = __decorate([
         ],
         controllers: [daily_closeouts_controller_1.DailyCloseoutsController],
         providers: [daily_closeouts_service_1.DailyCloseoutsService, daily_closeouts_gateway_1.DailyCloseoutsGateway],
-        exports: [daily_closeouts_service_1.DailyCloseoutsService, mongoose_1.MongooseModule],
+        exports: [daily_closeouts_service_1.DailyCloseoutsService, daily_closeouts_gateway_1.DailyCloseoutsGateway, mongoose_1.MongooseModule],
     })
 ], DailyCloseoutsModule);
 //# sourceMappingURL=daily-closeouts.module.js.map

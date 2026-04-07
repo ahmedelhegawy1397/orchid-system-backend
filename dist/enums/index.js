@@ -73,12 +73,14 @@ var PaymentMethod;
 })(PaymentMethod || (exports.PaymentMethod = PaymentMethod = {}));
 var ExpenseCategory;
 (function (ExpenseCategory) {
+    ExpenseCategory["Lab"] = "lab";
     ExpenseCategory["Electricity"] = "electricity";
     ExpenseCategory["AhmedElhagawy"] = "ahmed_elhagawy";
     ExpenseCategory["RawMaterials"] = "raw_materials";
     ExpenseCategory["Materials"] = "materials";
     ExpenseCategory["Internet"] = "internet";
     ExpenseCategory["Coffee"] = "coffee";
+    ExpenseCategory["Beverages"] = "beverages";
     ExpenseCategory["Waste"] = "waste";
     ExpenseCategory["Shipping"] = "shipping";
     ExpenseCategory["Rent"] = "rent";

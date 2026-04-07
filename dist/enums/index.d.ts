@@ -58,12 +58,14 @@ export declare enum PaymentMethod {
     Instapay = "instapay"
 }
 export declare enum ExpenseCategory {
+    Lab = "lab",
     Electricity = "electricity",
     AhmedElhagawy = "ahmed_elhagawy",
     RawMaterials = "raw_materials",
     Materials = "materials",
     Internet = "internet",
     Coffee = "coffee",
+    Beverages = "beverages",
     Waste = "waste",
     Shipping = "shipping",
     Rent = "rent",

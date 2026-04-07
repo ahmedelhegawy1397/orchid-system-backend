@@ -4,11 +4,13 @@ import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { AccountingGateway } from '../accounting/accounting.gateway';
 import { DashboardGateway } from '../dashboard/dashboard.gateway';
+import { DailyCloseoutsGateway } from '../daily-closeouts/daily-closeouts.gateway';
 export declare class ExpensesService {
     private expenseModel;
     private accountingGateway;
     private dashboardGateway;
-    constructor(expenseModel: Model<Expense>, accountingGateway: AccountingGateway, dashboardGateway: DashboardGateway);
+    private dailyCloseoutsGateway;
+    constructor(expenseModel: Model<Expense>, accountingGateway: AccountingGateway, dashboardGateway: DashboardGateway, dailyCloseoutsGateway: DailyCloseoutsGateway);
     findAll(query: {
         date?: string;
         startDate?: string;

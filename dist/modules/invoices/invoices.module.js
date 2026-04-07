@@ -16,6 +16,7 @@ const invoices_service_1 = require("./invoices.service");
 const invoices_controller_1 = require("./invoices.controller");
 const accounting_module_1 = require("../accounting/accounting.module");
 const dashboard_module_1 = require("../dashboard/dashboard.module");
+const daily_closeouts_module_1 = require("../daily-closeouts/daily-closeouts.module");
 let InvoicesModule = class InvoicesModule {
 };
 exports.InvoicesModule = InvoicesModule;
@@ -29,6 +30,7 @@ exports.InvoicesModule = InvoicesModule = __decorate([
             ]),
             (0, common_1.forwardRef)(() => accounting_module_1.AccountingModule),
             (0, common_1.forwardRef)(() => dashboard_module_1.DashboardModule),
+            (0, common_1.forwardRef)(() => daily_closeouts_module_1.DailyCloseoutsModule),
         ],
         controllers: [invoices_controller_1.InvoicesController],
         providers: [invoices_service_1.InvoicesService],

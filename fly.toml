@@ -16,6 +16,12 @@ primary_region = "ams"
   min_machines_running = 0
   processes = ["app"]
 
+  # WebSocket support - زيادة timeout للاتصالات الطويلة
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 250
+    soft_limit = 200
+
   [[http_service.checks]]
     grace_period = "10s"
     interval = "30s"
