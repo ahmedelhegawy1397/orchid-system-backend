@@ -15,7 +15,7 @@ function setupSwagger(app) {
 **Roles:** Owner, Doctor, Assistant, Admin. Some endpoints are restricted by role. Doctors see only their own data for certain resources.`)
         .setVersion('1.0')
         .addServer(`http://localhost:${port}`, 'Local')
-        .addServer('https://orchiddentalsystembe.onrender.com', 'development')
+        .addServer('https://orchid-system-backend.fly.dev', 'Production')
         .addBearerAuth({
         type: 'http',
         scheme: 'bearer',
@@ -28,7 +28,7 @@ function setupSwagger(app) {
     const document = swagger_1.SwaggerModule.createDocument(app, config);
     document.servers = [
         { url: `http://localhost:${port}`, description: 'Local' },
-        { url: 'https://orchiddentalsystembe.onrender.com', description: 'Production' },
+        { url: 'https://orchid-system-backend.fly.dev', description: 'Production' },
     ];
     swagger_1.SwaggerModule.setup('api/docs', app, document, {
         swaggerOptions: {
