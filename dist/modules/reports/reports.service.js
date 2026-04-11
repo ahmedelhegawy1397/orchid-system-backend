@@ -185,8 +185,39 @@ let ReportsService = class ReportsService {
             }
         }
         else if (collectedAfterLabFees > 0) {
-            doctorShare = (collectedAfterLabFees * 80) / 100;
-            clinicShare = (collectedAfterLabFees * 20) / 100;
+            // Calculate weighted average for all doctors based on their actual revenue
+            let totalDoctorShare = 0;
+            let totalClinicShare = 0;
+            
+            // Group payments by doctor
+            const paymentsByDoctor = {};
+            for (const payment of payments) {
+                const docId = payment.doctorId?.toString();
+                if (docId) {
+                    paymentsByDoctor[docId] = (paymentsByDoctor[docId] || 0) + payment.amount;
+                }
+            }
+            
+            // Calculate share for each doctor based on their percentage
+            for (const [docId, amount] of Object.entries(paymentsByDoctor)) {
+                const doctor = doctors.find(d => d._id.toString() === docId);
+                if (doctor) {
+                    const doctorPercent = doctor.doctorSharePercent ?? 80;
+                    const clinicPercent = doctor.clinicSharePercent ?? 20;
+                    totalDoctorShare += (amount * doctorPercent) / 100;
+                    totalClinicShare += (amount * clinicPercent) / 100;
+                }
+            }
+            
+            // Adjust for lab fees proportionally
+            if (totalCollected > 0) {
+                const labFeeRatio = labFees / totalCollected;
+                totalDoctorShare = totalDoctorShare * (1 - labFeeRatio);
+                totalClinicShare = totalClinicShare * (1 - labFeeRatio);
+            }
+            
+            doctorShare = totalDoctorShare;
+            clinicShare = totalClinicShare;
         }
         const procedureBreakdown = {};
         for (const inv of invoices) {
