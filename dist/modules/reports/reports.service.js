@@ -198,22 +198,19 @@ let ReportsService = class ReportsService {
                 }
             }
             
-            // Calculate share for each doctor based on their percentage
+            // Calculate share for each doctor based on their percentage (after lab fees)
             for (const [docId, amount] of Object.entries(paymentsByDoctor)) {
                 const doctor = doctors.find(d => d._id.toString() === docId);
                 if (doctor) {
                     const doctorPercent = doctor.doctorSharePercent ?? 80;
                     const clinicPercent = doctor.clinicSharePercent ?? 20;
-                    totalDoctorShare += (amount * doctorPercent) / 100;
-                    totalClinicShare += (amount * clinicPercent) / 100;
+                    // Calculate the proportion of this doctor's payments to total collected
+                    const doctorProportion = totalCollected > 0 ? amount / totalCollected : 0;
+                    // Apply this proportion to the collected amount after lab fees
+                    const doctorCollectedAfterLabFees = collectedAfterLabFees * doctorProportion;
+                    totalDoctorShare += (doctorCollectedAfterLabFees * doctorPercent) / 100;
+                    totalClinicShare += (doctorCollectedAfterLabFees * clinicPercent) / 100;
                 }
-            }
-            
-            // Adjust for lab fees proportionally
-            if (totalCollected > 0) {
-                const labFeeRatio = labFees / totalCollected;
-                totalDoctorShare = totalDoctorShare * (1 - labFeeRatio);
-                totalClinicShare = totalClinicShare * (1 - labFeeRatio);
             }
             
             doctorShare = totalDoctorShare;
