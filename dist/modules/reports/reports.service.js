@@ -179,9 +179,9 @@ let ReportsService = class ReportsService {
             if (doctor) {
                 const doctorPercent = doctor.doctorSharePercent ?? 80;
                 const clinicPercent = doctor.clinicSharePercent ?? 20;
-                const doctorShareBeforeLabFees = (totalCollected * doctorPercent) / 100;
-                clinicShare = (totalCollected * clinicPercent) / 100;
-                doctorShare = doctorShareBeforeLabFees - labFees;
+                const collectedAfterLabFees = totalCollected - labFees;
+                doctorShare = (collectedAfterLabFees * doctorPercent) / 100;
+                clinicShare = (collectedAfterLabFees * clinicPercent) / 100;
             }
         }
         else if (totalCollected > 0) {
@@ -193,17 +193,28 @@ let ReportsService = class ReportsService {
                     paymentsByDoctor.set(docId, (paymentsByDoctor.get(docId) || 0) + payment.amount);
                 }
             }
-            let totalDoctorShareBeforeLabFees = 0;
+            const labFeesByDoctor = new Map();
+            const labRecordsForPeriod = await this.labRecordModel
+                .find({ date: { $gte: start, $lte: end } })
+                .select('doctorId price')
+                .lean();
+            for (const record of labRecordsForPeriod) {
+                const docId = record.doctorId?.toString();
+                if (docId) {
+                    labFeesByDoctor.set(docId, (labFeesByDoctor.get(docId) || 0) + (record.price || 0));
+                }
+            }
             for (const [docId, collected] of paymentsByDoctor.entries()) {
                 const doctor = doctorMap.get(docId);
                 if (doctor) {
                     const doctorPercent = doctor.doctorSharePercent ?? 80;
                     const clinicPercent = doctor.clinicSharePercent ?? 20;
-                    totalDoctorShareBeforeLabFees += (collected * doctorPercent) / 100;
-                    clinicShare += (collected * clinicPercent) / 100;
+                    const doctorLabFees = labFeesByDoctor.get(docId) || 0;
+                    const collectedAfterLabFees = collected - doctorLabFees;
+                    doctorShare += (collectedAfterLabFees * doctorPercent) / 100;
+                    clinicShare += (collectedAfterLabFees * clinicPercent) / 100;
                 }
             }
-            doctorShare = totalDoctorShareBeforeLabFees - labFees;
         }
         const procedureBreakdown = {};
         for (const inv of invoices) {
