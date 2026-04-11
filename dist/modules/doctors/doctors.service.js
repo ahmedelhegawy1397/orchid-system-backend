@@ -62,14 +62,9 @@ let DoctorsService = class DoctorsService {
         const doc = await this.doctorModel.findById(id);
         if (!doc)
             throw new common_1.NotFoundException('Doctor not found');
-        // Only update share percentages if they are explicitly provided in the DTO
-        if (dto.clinicSharePercent !== undefined || dto.doctorSharePercent !== undefined) {
-            const clinic = dto.clinicSharePercent ?? doc.clinicSharePercent ?? 20;
-            const doctor = dto.doctorSharePercent ?? doc.doctorSharePercent ?? 80;
-            const { clinicSharePercent, doctorSharePercent } = ensurePercentSum(clinic, doctor);
-            doc.clinicSharePercent = clinicSharePercent;
-            doc.doctorSharePercent = doctorSharePercent;
-        }
+        const clinic = dto.clinicSharePercent ?? doc.clinicSharePercent ?? 20;
+        const doctor = dto.doctorSharePercent ?? doc.doctorSharePercent ?? 80;
+        const { clinicSharePercent, doctorSharePercent } = ensurePercentSum(clinic, doctor);
         if (dto.name !== undefined)
             doc.name = dto.name.trim();
         if (dto.nameAr !== undefined)
@@ -84,6 +79,8 @@ let DoctorsService = class DoctorsService {
             doc.isOwner = dto.isOwner;
         if (dto.role !== undefined)
             doc.role = dto.role;
+        doc.clinicSharePercent = clinicSharePercent;
+        doc.doctorSharePercent = doctorSharePercent;
         await doc.save();
         const result = doc.toObject();
         this.gateway.emitDoctorUpdated(result);

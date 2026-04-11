@@ -172,7 +172,6 @@ let ReportsService = class ReportsService {
             else
                 collectedByPaymentMethod.instapay += p.amount;
         }
-        const collectedAfterLabFees = totalCollected - labFees;
         let doctorShare = 0;
         let clinicShare = 0;
         if (query.doctorId) {
@@ -180,41 +179,31 @@ let ReportsService = class ReportsService {
             if (doctor) {
                 const doctorPercent = doctor.doctorSharePercent ?? 80;
                 const clinicPercent = doctor.clinicSharePercent ?? 20;
-                doctorShare = (collectedAfterLabFees * doctorPercent) / 100;
-                clinicShare = (collectedAfterLabFees * clinicPercent) / 100;
+                const doctorShareBeforeLabFees = (totalCollected * doctorPercent) / 100;
+                clinicShare = (totalCollected * clinicPercent) / 100;
+                doctorShare = doctorShareBeforeLabFees - labFees;
             }
         }
-        else if (collectedAfterLabFees > 0) {
-            // Calculate weighted average for all doctors based on their actual revenue
-            let totalDoctorShare = 0;
-            let totalClinicShare = 0;
-            
-            // Group payments by doctor
-            const paymentsByDoctor = {};
+        else if (totalCollected > 0) {
+            const doctorMap = new Map(doctors.map(d => [d._id.toString(), d]));
+            const paymentsByDoctor = new Map();
             for (const payment of payments) {
                 const docId = payment.doctorId?.toString();
                 if (docId) {
-                    paymentsByDoctor[docId] = (paymentsByDoctor[docId] || 0) + payment.amount;
+                    paymentsByDoctor.set(docId, (paymentsByDoctor.get(docId) || 0) + payment.amount);
                 }
             }
-            
-            // Calculate share for each doctor based on their percentage (after lab fees)
-            for (const [docId, amount] of Object.entries(paymentsByDoctor)) {
-                const doctor = doctors.find(d => d._id.toString() === docId);
+            let totalDoctorShareBeforeLabFees = 0;
+            for (const [docId, collected] of paymentsByDoctor.entries()) {
+                const doctor = doctorMap.get(docId);
                 if (doctor) {
                     const doctorPercent = doctor.doctorSharePercent ?? 80;
                     const clinicPercent = doctor.clinicSharePercent ?? 20;
-                    // Calculate the proportion of this doctor's payments to total collected
-                    const doctorProportion = totalCollected > 0 ? amount / totalCollected : 0;
-                    // Apply this proportion to the collected amount after lab fees
-                    const doctorCollectedAfterLabFees = collectedAfterLabFees * doctorProportion;
-                    totalDoctorShare += (doctorCollectedAfterLabFees * doctorPercent) / 100;
-                    totalClinicShare += (doctorCollectedAfterLabFees * clinicPercent) / 100;
+                    totalDoctorShareBeforeLabFees += (collected * doctorPercent) / 100;
+                    clinicShare += (collected * clinicPercent) / 100;
                 }
             }
-            
-            doctorShare = totalDoctorShare;
-            clinicShare = totalClinicShare;
+            doctorShare = totalDoctorShareBeforeLabFees - labFees;
         }
         const procedureBreakdown = {};
         for (const inv of invoices) {
