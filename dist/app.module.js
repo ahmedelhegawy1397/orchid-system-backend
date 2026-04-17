@@ -12,6 +12,7 @@ const config_1 = require("@nestjs/config");
 const mongoose_1 = require("@nestjs/mongoose");
 const core_1 = require("@nestjs/core");
 const configuration_1 = require("./config/configuration");
+const request_logger_middleware_1 = require("./common/middleware/request-logger.middleware");
 const auth_module_1 = require("./modules/auth/auth.module");
 const doctors_module_1 = require("./modules/doctors/doctors.module");
 const patients_module_1 = require("./modules/patients/patients.module");
@@ -34,6 +35,9 @@ const lab_management_module_1 = require("./modules/lab-management/lab-management
 const seed_module_1 = require("./database/seed/seed.module");
 const jwt_auth_guard_1 = require("./common/guards/jwt-auth.guard");
 let AppModule = class AppModule {
+    configure(consumer) {
+        consumer.apply(request_logger_middleware_1.RequestLoggerMiddleware).forRoutes('*');
+    }
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([

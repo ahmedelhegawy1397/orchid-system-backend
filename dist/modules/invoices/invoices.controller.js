@@ -24,6 +24,7 @@ const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
 const roles_guard_1 = require("../../common/guards/roles.guard");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
+const idempotency_key_decorator_1 = require("../../common/decorators/idempotency-key.decorator");
 const enums_1 = require("../../enums");
 let InvoicesController = class InvoicesController {
     constructor(invoicesService) {
@@ -33,14 +34,15 @@ let InvoicesController = class InvoicesController {
         const doctorIdFilter = user?.role === enums_1.UserRole.Doctor ? user?.doctorId : undefined;
         return this.invoicesService.findAll(query, doctorIdFilter);
     }
-    create(dto, user) {
+    async create(dto, user, idempotencyKey, req) {
         if (user?.role === enums_1.UserRole.Doctor && user?.doctorId) {
             if (dto.doctorId && dto.doctorId !== user.doctorId) {
                 throw new common_1.ForbiddenException('Doctors can only create invoices for themselves');
             }
             dto = { ...dto, doctorId: user.doctorId };
         }
-        return this.invoicesService.create(dto);
+        const requestId = req?.requestId;
+        return this.invoicesService.create(dto, user?.id, idempotencyKey, requestId);
     }
     update(id, dto, user) {
         const doctorIdFilter = user?.role === enums_1.UserRole.Doctor ? user?.doctorId : undefined;
@@ -80,12 +82,15 @@ __decorate([
 __decorate([
     (0, common_1.Post)(),
     (0, swagger_1.ApiOperation)({ summary: 'Create an invoice' }),
+    (0, swagger_1.ApiHeader)({ name: 'X-Idempotency-Key', required: false, description: 'Optional idempotency key to prevent duplicate invoice creation' }),
     (0, swagger_1.ApiBody)({ type: create_invoice_dto_1.CreateInvoiceDto }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __param(2, (0, idempotency_key_decorator_1.IdempotencyKey)()),
+    __param(3, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_invoice_dto_1.CreateInvoiceDto, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [create_invoice_dto_1.CreateInvoiceDto, Object, String, Object]),
+    __metadata("design:returntype", Promise)
 ], InvoicesController.prototype, "create", null);
 __decorate([
     (0, common_1.Patch)(':id'),

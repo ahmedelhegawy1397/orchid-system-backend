@@ -12,6 +12,8 @@ const mongoose_1 = require("@nestjs/mongoose");
 const invoice_schema_1 = require("./schemas/invoice.schema");
 const invoice_payment_schema_1 = require("./schemas/invoice-payment.schema");
 const expense_schema_1 = require("../expenses/schemas/expense.schema");
+const idempotent_request_schema_1 = require("./schemas/idempotent-request.schema");
+const invoice_duplicate_check_schema_1 = require("./schemas/invoice-duplicate-check.schema");
 const invoices_service_1 = require("./invoices.service");
 const invoices_controller_1 = require("./invoices.controller");
 const accounting_module_1 = require("../accounting/accounting.module");
@@ -27,6 +29,8 @@ exports.InvoicesModule = InvoicesModule = __decorate([
                 { name: invoice_schema_1.Invoice.name, schema: invoice_schema_1.InvoiceSchema },
                 { name: invoice_payment_schema_1.InvoicePayment.name, schema: invoice_payment_schema_1.InvoicePaymentSchema },
                 { name: expense_schema_1.Expense.name, schema: expense_schema_1.ExpenseSchema },
+                { name: idempotent_request_schema_1.IdempotentRequest.name, schema: idempotent_request_schema_1.IdempotentRequestSchema },
+                { name: invoice_duplicate_check_schema_1.InvoiceDuplicateCheck.name, schema: invoice_duplicate_check_schema_1.InvoiceDuplicateCheckSchema },
             ]),
             (0, common_1.forwardRef)(() => accounting_module_1.AccountingModule),
             (0, common_1.forwardRef)(() => dashboard_module_1.DashboardModule),

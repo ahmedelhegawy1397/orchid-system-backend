@@ -11,32 +11,39 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var InvoicesService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.InvoicesService = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
+const crypto_1 = require("crypto");
 const objectid_1 = require("../../common/utils/objectid");
 const date_range_util_1 = require("../../common/utils/date-range.util");
 const shift_date_util_1 = require("../../common/utils/shift-date.util");
 const invoice_schema_1 = require("./schemas/invoice.schema");
 const invoice_payment_schema_1 = require("./schemas/invoice-payment.schema");
 const expense_schema_1 = require("../expenses/schemas/expense.schema");
+const idempotent_request_schema_1 = require("./schemas/idempotent-request.schema");
+const invoice_duplicate_check_schema_1 = require("./schemas/invoice-duplicate-check.schema");
 const enums_1 = require("../../enums");
 const invoice_helpers_1 = require("./invoice-helpers");
 const accounting_gateway_1 = require("../accounting/accounting.gateway");
 const dashboard_gateway_1 = require("../dashboard/dashboard.gateway");
 const daily_closeouts_gateway_1 = require("../daily-closeouts/daily-closeouts.gateway");
-let InvoicesService = class InvoicesService {
-    constructor(invoiceModel, paymentModel, expenseModel, configService, accountingGateway, dashboardGateway, dailyCloseoutsGateway) {
+let InvoicesService = InvoicesService_1 = class InvoicesService {
+    constructor(invoiceModel, paymentModel, expenseModel, idempotentRequestModel, duplicateCheckModel, configService, accountingGateway, dashboardGateway, dailyCloseoutsGateway) {
         this.invoiceModel = invoiceModel;
         this.paymentModel = paymentModel;
         this.expenseModel = expenseModel;
+        this.idempotentRequestModel = idempotentRequestModel;
+        this.duplicateCheckModel = duplicateCheckModel;
         this.configService = configService;
         this.accountingGateway = accountingGateway;
         this.dashboardGateway = dashboardGateway;
         this.dailyCloseoutsGateway = dailyCloseoutsGateway;
+        this.logger = new common_1.Logger(InvoicesService_1.name);
     }
     async findAll(query, doctorIdFilter) {
         const filter = {};
@@ -183,7 +190,35 @@ let InvoicesService = class InvoicesService {
         const payments = await this.paymentModel.find({ invoiceId }).sort({ paidAt: 1 }).lean();
         return { ...invoice, payments };
     }
-    async create(body) {
+    async create(body, userId, idempotencyKey, requestId) {
+        const logPrefix = `[${requestId || 'NO-REQ-ID'}]`;
+        this.logger.log(`${logPrefix} Invoice creation started - User: ${userId}, Patient: ${body.patientId}, Doctor: ${body.doctorId}`);
+        if (idempotencyKey) {
+            this.logger.log(`${logPrefix} Checking idempotency key: ${idempotencyKey}`);
+            const existingRequest = await this.idempotentRequestModel.findOne({ idempotencyKey }).lean();
+            if (existingRequest) {
+                this.logger.warn(`${logPrefix} Duplicate request detected via idempotency key - returning cached response`);
+                return existingRequest.response;
+            }
+        }
+        const autoIdempotencyKey = idempotencyKey || this.generateIdempotencyKey(body, userId);
+        this.logger.log(`${logPrefix} Using idempotency key: ${autoIdempotencyKey}`);
+        const contentHash = this.generateContentHash(body);
+        this.logger.log(`${logPrefix} Content hash: ${contentHash}`);
+        const existingDuplicate = await this.duplicateCheckModel.findOne({ contentHash }).lean();
+        if (existingDuplicate) {
+            this.logger.warn(`${logPrefix} Duplicate invoice detected - Invoice ID: ${existingDuplicate.invoiceId}, created ${Math.floor((Date.now() - existingDuplicate.createdAt.getTime()) / 1000)}s ago`);
+            const existingInvoice = await this.invoiceModel
+                .findById(existingDuplicate.invoiceId)
+                .populate('patientId', 'name nameAr phone')
+                .populate('doctorId', 'name nameAr color')
+                .lean();
+            if (existingInvoice) {
+                this.logger.log(`${logPrefix} Returning existing invoice instead of creating duplicate`);
+                return existingInvoice;
+            }
+        }
+        this.logger.log(`${logPrefix} Creating new invoice`);
         const qty = (i) => (i.quantity != null && i.quantity >= 1 ? i.quantity : 1);
         const items = body.items.map((i) => {
             const quantity = qty(i);
@@ -219,6 +254,7 @@ let InvoicesService = class InvoicesService {
             currency: body.currency ?? 'EGP',
             dueDate: body.dueDate,
         });
+        this.logger.log(`${logPrefix} Invoice created successfully - ID: ${invoice._id}, Total: ${total}, Paid: ${paid}`);
         if (paid > 0) {
             const tz = this.configService.get('clinicTimezone') ?? 'Africa/Cairo';
             const shiftStartHour = this.configService.get('workdayStartHour') ?? 6;
@@ -234,14 +270,81 @@ let InvoicesService = class InvoicesService {
                 afterRemaining: remaining,
                 currency: invoice.currency,
             });
+            this.logger.log(`${logPrefix} Initial payment created - Amount: ${paid}`);
         }
-        const populatedInvoice = await this.invoiceModel.findById(invoice._id).populate('patientId', 'name nameAr phone').populate('doctorId', 'name nameAr color').lean();
+        const populatedInvoice = await this.invoiceModel
+            .findById(invoice._id)
+            .populate('patientId', 'name nameAr phone')
+            .populate('doctorId', 'name nameAr color')
+            .lean();
+        try {
+            await this.idempotentRequestModel.create({
+                idempotencyKey: autoIdempotencyKey,
+                endpoint: 'POST /api/invoices',
+                requestBody: body,
+                response: populatedInvoice,
+                statusCode: 201,
+                userId: userId || 'unknown',
+            });
+            this.logger.log(`${logPrefix} Idempotent request stored`);
+        }
+        catch (error) {
+            if (error.code !== 11000) {
+                this.logger.error(`${logPrefix} Failed to store idempotent request: ${error.message}`);
+            }
+        }
+        try {
+            await this.duplicateCheckModel.create({
+                contentHash,
+                invoiceId: invoice._id,
+                patientId: invoice.patientId,
+                doctorId: invoice.doctorId,
+                total,
+            });
+            this.logger.log(`${logPrefix} Duplicate check hash stored`);
+        }
+        catch (error) {
+            if (error.code !== 11000) {
+                this.logger.error(`${logPrefix} Failed to store duplicate check: ${error.message}`);
+            }
+        }
         this.accountingGateway.emitInvoiceCreated(populatedInvoice);
         this.accountingGateway.emitAccountingUpdated();
         this.dashboardGateway.emitRevenueChanged(populatedInvoice);
         this.dashboardGateway.emitDashboardUpdated();
         this.dailyCloseoutsGateway.emitCloseoutsListUpdated();
+        this.logger.log(`${logPrefix} Invoice creation completed successfully`);
         return populatedInvoice;
+    }
+    generateIdempotencyKey(body, userId) {
+        const data = JSON.stringify({
+            userId: userId || 'anonymous',
+            patientId: body.patientId,
+            doctorId: body.doctorId,
+            items: body.items,
+            total: body.items.reduce((sum, item) => sum + (item.quantity || 1) * item.unitPrice, 0),
+            timestamp: Date.now(),
+        });
+        return (0, crypto_1.createHash)('sha256').update(data).digest('hex');
+    }
+    generateContentHash(body) {
+        const sortedItems = [...body.items].sort((a, b) => {
+            if (a.procedure !== b.procedure)
+                return a.procedure.localeCompare(b.procedure);
+            return (a.unitPrice || 0) - (b.unitPrice || 0);
+        });
+        const data = JSON.stringify({
+            patientId: body.patientId,
+            doctorId: body.doctorId,
+            items: sortedItems.map((i) => ({
+                procedure: i.procedure,
+                quantity: i.quantity || 1,
+                unitPrice: i.unitPrice,
+            })),
+            discount: body.discount || 0,
+            discountType: body.discountType || enums_1.DiscountType.Fixed,
+        });
+        return (0, crypto_1.createHash)('sha256').update(data).digest('hex');
     }
     async update(id, body, doctorIdFilter) {
         const invoiceId = (0, objectid_1.toObjectIdOrThrow)(id, 'id');
@@ -393,15 +496,19 @@ let InvoicesService = class InvoicesService {
     }
 };
 exports.InvoicesService = InvoicesService;
-exports.InvoicesService = InvoicesService = __decorate([
+exports.InvoicesService = InvoicesService = InvoicesService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(invoice_schema_1.Invoice.name)),
     __param(1, (0, mongoose_1.InjectModel)(invoice_payment_schema_1.InvoicePayment.name)),
     __param(2, (0, mongoose_1.InjectModel)(expense_schema_1.Expense.name)),
-    __param(4, (0, common_1.Inject)((0, common_1.forwardRef)(() => accounting_gateway_1.AccountingGateway))),
-    __param(5, (0, common_1.Inject)((0, common_1.forwardRef)(() => dashboard_gateway_1.DashboardGateway))),
-    __param(6, (0, common_1.Inject)((0, common_1.forwardRef)(() => daily_closeouts_gateway_1.DailyCloseoutsGateway))),
+    __param(3, (0, mongoose_1.InjectModel)(idempotent_request_schema_1.IdempotentRequest.name)),
+    __param(4, (0, mongoose_1.InjectModel)(invoice_duplicate_check_schema_1.InvoiceDuplicateCheck.name)),
+    __param(6, (0, common_1.Inject)((0, common_1.forwardRef)(() => accounting_gateway_1.AccountingGateway))),
+    __param(7, (0, common_1.Inject)((0, common_1.forwardRef)(() => dashboard_gateway_1.DashboardGateway))),
+    __param(8, (0, common_1.Inject)((0, common_1.forwardRef)(() => daily_closeouts_gateway_1.DailyCloseoutsGateway))),
     __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model,
+        mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model,
         config_1.ConfigService,
